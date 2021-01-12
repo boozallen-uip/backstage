@@ -75,6 +75,7 @@ Firekube
 Fiverr
 freben
 Fredrik
+gitbeaker
 github
 GitHub
 gitlab
