@@ -1,5 +1,14 @@
 # @backstage/plugin-auth-backend
 
+## 0.2.10
+
+### Patch Changes
+
+- 468579734: Allow blank certificates and support logout URLs in the SAML provider.
+- Updated dependencies [f3b064e1c]
+  - @backstage/catalog-model@0.6.1
+  - @backstage/backend-common@0.4.3
+
 ## 0.2.9
 
 ### Patch Changes

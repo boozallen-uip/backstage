@@ -1,5 +1,17 @@
 # @backstage/plugin-catalog-import
 
+## 0.3.4
+
+### Patch Changes
+
+- be5ac7fde: Remove dependency to `@backstage/plugin-catalog-backend`.
+- Updated dependencies [466354aaa]
+- Updated dependencies [f3b064e1c]
+- Updated dependencies [265a7ab30]
+  - @backstage/integration@0.2.0
+  - @backstage/catalog-model@0.6.1
+  - @backstage/core@0.4.4
+
 ## 0.3.3
 
 ### Patch Changes
