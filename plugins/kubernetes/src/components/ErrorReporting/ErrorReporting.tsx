@@ -17,7 +17,7 @@ import * as React from 'react';
 import { Table, TableColumn, InfoCard } from '@backstage/core';
 import { DetectedError, DetectedErrorsByCluster } from '../../error-detection';
 import { Chip, Typography, Grid } from '@material-ui/core';
-import EmptyStateImage from '../../../assets/emptystate.svg';
+import EmptyStateImage from '../../assets/emptystate.svg';
 
 type ErrorReportingProps = {
   detectedErrors: DetectedErrorsByCluster;
@@ -86,6 +86,31 @@ const sortBySeverity = (a: DetectedError, b: DetectedError) => {
   return 0;
 };
 
+export const ErrorEmptyState = () => {
+  return (
+    <Grid
+      container
+      justify="space-around"
+      direction="row"
+      alignItems="center"
+      spacing={2}
+    >
+      <Grid item xs={4}>
+        <Typography variant="h5">
+          Nice! There are no errors to report!
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <img
+          src={EmptyStateImage}
+          alt="EmptyState"
+          data-testid="emptyStateImg"
+        />
+      </Grid>
+    </Grid>
+  );
+};
+
 export const ErrorReporting = ({ detectedErrors }: ErrorReportingProps) => {
   const errors = Array.from(detectedErrors.values())
     .flat()
@@ -106,30 +131,5 @@ export const ErrorReporting = ({ detectedErrors }: ErrorReportingProps) => {
         />
       )}
     </>
-  );
-};
-
-export const ErrorEmptyState = () => {
-  return (
-    <Grid
-      container
-      justify="center"
-      direction="column"
-      alignItems="center"
-      spacing={2}
-    >
-      <Grid item xs={12}>
-        <Typography variant="h5">
-          Nice! There are no errors to report!
-        </Typography>
-      </Grid>
-      <Grid item xs={12}>
-        <img
-          src={EmptyStateImage}
-          alt="EmptyState"
-          data-testid="emptyStateImg"
-        />
-      </Grid>
-    </Grid>
   );
 };

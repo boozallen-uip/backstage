@@ -23,9 +23,7 @@ import {
   Grid,
   Typography,
 } from '@material-ui/core';
-import { Config } from '@backstage/config';
 import {
-  configApiRef,
   Content,
   Page,
   Progress,
@@ -47,151 +45,8 @@ import { DeploymentsAccordions } from '../DeploymentsAccordions';
 import { ErrorReporting } from '../ErrorReporting';
 import { groupResponses } from '../../utils/response';
 import { DetectedError, detectErrors } from '../../error-detection';
-
-type KubernetesContentProps = { entity: Entity; children?: React.ReactNode };
-
-export const KubernetesContent = ({ entity }: KubernetesContentProps) => {
-  const kubernetesApi = useApi(kubernetesApiRef);
-
-  const [kubernetesObjects, setKubernetesObjects] = useState<
-    ObjectsByEntityResponse | undefined
-  >(undefined);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  const configApi = useApi(configApiRef);
-  const clusters: Config[] = configApi.getConfigArray('kubernetes.clusters');
-  const allAuthProviders: string[] = clusters.map(c =>
-    c.getString('authProvider'),
-  );
-  const authProviders: string[] = [...new Set(allAuthProviders)];
-
-  const kubernetesAuthProvidersApi = useApi(kubernetesAuthProvidersApiRef);
-
-  useEffect(() => {
-    (async () => {
-      // For each auth type, invoke decorateRequestBodyForAuth on corresponding KubernetesAuthProvider
-      let requestBody: KubernetesRequestBody = {
-        entity,
-      };
-      for (const authProviderStr of authProviders) {
-        // Multiple asyncs done sequentially instead of all at once to prevent same requestBody from being modified simultaneously
-        requestBody = await kubernetesAuthProvidersApi.decorateRequestBodyForAuth(
-          authProviderStr,
-          requestBody,
-        );
-      }
-
-      // TODO: Add validation on contents/format of requestBody
-      kubernetesApi
-        .getObjectsByEntity(requestBody)
-        .then(result => {
-          setKubernetesObjects(result);
-        })
-        .catch(e => {
-          setError(e.message);
-        });
-    })();
-    /* eslint-disable react-hooks/exhaustive-deps */
-  }, [entity.metadata.name, kubernetesApi, kubernetesAuthProvidersApi]);
-  /* eslint-enable react-hooks/exhaustive-deps */
-
-  const clustersWithErrors =
-    kubernetesObjects?.items.filter(r => r.errors.length > 0) ?? [];
-
-  const detectedErrors =
-    kubernetesObjects !== undefined
-      ? detectErrors(kubernetesObjects)
-      : new Map<string, DetectedError[]>();
-
-  return (
-    <Page themeId="tool">
-      <Content>
-        <Grid container spacing={3} direction="column">
-          {kubernetesObjects === undefined && error === undefined && (
-            <Progress />
-          )}
-
-          {/* errors retrieved from the kubernetes clusters */}
-          {clustersWithErrors.length > 0 && (
-            <ErrorPanel
-              entityName={entity.metadata.name}
-              clustersWithErrors={clustersWithErrors}
-            />
-          )}
-
-          {/* other errors */}
-          {error !== undefined && (
-            <ErrorPanel
-              entityName={entity.metadata.name}
-              errorMessage={error}
-            />
-          )}
-
-          {kubernetesObjects && (
-            <>
-              <Grid item>
-                <ErrorReporting detectedErrors={detectedErrors} />
-              </Grid>
-              <Grid item>
-                <Divider />
-              </Grid>
-              <Grid item>
-                <Typography variant="h3">Your Clusters</Typography>
-              </Grid>
-              <Grid item container>
-                {kubernetesObjects?.items.map((item, i) => (
-                  <Grid item key={i} xs={12}>
-                    <Cluster
-                      clusterObjects={item}
-                      detectedErrors={detectedErrors.get(item.cluster.name)}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </>
-          )}
-        </Grid>
-      </Content>
-    </Page>
-  );
-};
-
-type ClusterProps = {
-  clusterObjects: ClusterObjects;
-  detectedErrors?: DetectedError[];
-  children?: React.ReactNode;
-};
-
-const Cluster = ({ clusterObjects, detectedErrors }: ClusterProps) => {
-  const groupedResponses = groupResponses(clusterObjects.resources);
-
-  const podsWithErrors = new Set<string>(
-    detectedErrors
-      ?.filter(de => de.kind === 'Pod')
-      .map(de => de.names)
-      .flat() ?? [],
-  );
-
-  return (
-    <>
-      <Accordion TransitionProps={{ unmountOnExit: true }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <ClusterSummary
-            clusterName={clusterObjects.cluster.name}
-            totalNumberOfPods={groupedResponses.pods.length}
-            numberOfPodsWithErrors={podsWithErrors.size}
-          />
-        </AccordionSummary>
-        <AccordionDetails>
-          <DeploymentsAccordions
-            deploymentResources={groupedResponses}
-            clusterPodNamesWithErrors={podsWithErrors}
-          />
-        </AccordionDetails>
-      </Accordion>
-    </>
-  );
-};
+import { IngressesAccordions } from '../IngressesAccordions';
+import { ServicesAccordions } from '../ServicesAccordions';
 
 type ClusterSummaryProps = {
   clusterName: string;
@@ -250,5 +105,163 @@ const ClusterSummary = ({
         </Grid>
       </Grid>
     </Grid>
+  );
+};
+
+type ClusterProps = {
+  clusterObjects: ClusterObjects;
+  detectedErrors?: DetectedError[];
+  children?: React.ReactNode;
+};
+
+const Cluster = ({ clusterObjects, detectedErrors }: ClusterProps) => {
+  const groupedResponses = groupResponses(clusterObjects.resources);
+
+  const podsWithErrors = new Set<string>(
+    detectedErrors
+      ?.filter(de => de.kind === 'Pod')
+      .map(de => de.names)
+      .flat() ?? [],
+  );
+
+  return (
+    <>
+      <Accordion TransitionProps={{ unmountOnExit: true }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <ClusterSummary
+            clusterName={clusterObjects.cluster.name}
+            totalNumberOfPods={groupedResponses.pods.length}
+            numberOfPodsWithErrors={podsWithErrors.size}
+          />
+        </AccordionSummary>
+        <AccordionDetails>
+          <Grid container direction="column">
+            <Grid item>
+              <DeploymentsAccordions
+                deploymentResources={groupedResponses}
+                clusterPodNamesWithErrors={podsWithErrors}
+              />
+            </Grid>
+
+            <Grid item>
+              <IngressesAccordions deploymentResources={groupedResponses} />
+            </Grid>
+
+            <Grid item>
+              <ServicesAccordions deploymentResources={groupedResponses} />
+            </Grid>
+          </Grid>
+        </AccordionDetails>
+      </Accordion>
+    </>
+  );
+};
+
+type KubernetesContentProps = { entity: Entity; children?: React.ReactNode };
+
+export const KubernetesContent = ({ entity }: KubernetesContentProps) => {
+  const kubernetesApi = useApi(kubernetesApiRef);
+
+  const [kubernetesObjects, setKubernetesObjects] = useState<
+    ObjectsByEntityResponse | undefined
+  >(undefined);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const kubernetesAuthProvidersApi = useApi(kubernetesAuthProvidersApiRef);
+
+  useEffect(() => {
+    (async () => {
+      const clusters = await kubernetesApi.getClusters();
+      const authProviders: string[] = [
+        ...new Set(clusters.map(c => c.authProvider)),
+      ];
+      // For each auth type, invoke decorateRequestBodyForAuth on corresponding KubernetesAuthProvider
+      let requestBody: KubernetesRequestBody = {
+        entity,
+      };
+      for (const authProviderStr of authProviders) {
+        // Multiple asyncs done sequentially instead of all at once to prevent same requestBody from being modified simultaneously
+        requestBody = await kubernetesAuthProvidersApi.decorateRequestBodyForAuth(
+          authProviderStr,
+          requestBody,
+        );
+      }
+
+      // TODO: Add validation on contents/format of requestBody
+      kubernetesApi
+        .getObjectsByEntity(requestBody)
+        .then(result => {
+          setKubernetesObjects(result);
+        })
+        .catch(e => {
+          setError(e.message);
+        });
+    })();
+    /* eslint-disable react-hooks/exhaustive-deps */
+  }, [entity.metadata.name, kubernetesApi, kubernetesAuthProvidersApi]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+
+  const clustersWithErrors =
+    kubernetesObjects?.items.filter(r => r.errors.length > 0) ?? [];
+
+  const detectedErrors =
+    kubernetesObjects !== undefined
+      ? detectErrors(kubernetesObjects)
+      : new Map<string, DetectedError[]>();
+
+  return (
+    <Page themeId="tool">
+      <Content>
+        {kubernetesObjects === undefined && error === undefined && <Progress />}
+
+        {/* errors retrieved from the kubernetes clusters */}
+        {clustersWithErrors.length > 0 && (
+          <Grid container spacing={3} direction="column">
+            <Grid item>
+              <ErrorPanel
+                entityName={entity.metadata.name}
+                clustersWithErrors={clustersWithErrors}
+              />
+            </Grid>
+          </Grid>
+        )}
+
+        {/* other errors */}
+        {error !== undefined && (
+          <Grid container spacing={3} direction="column">
+            <Grid item>
+              <ErrorPanel
+                entityName={entity.metadata.name}
+                errorMessage={error}
+              />
+            </Grid>
+          </Grid>
+        )}
+
+        {kubernetesObjects && (
+          <Grid container spacing={3} direction="column">
+            <Grid item>
+              <ErrorReporting detectedErrors={detectedErrors} />
+            </Grid>
+            <Grid item>
+              <Divider />
+            </Grid>
+            <Grid item>
+              <Typography variant="h3">Your Clusters</Typography>
+            </Grid>
+            <Grid item container>
+              {kubernetesObjects?.items.map((item, i) => (
+                <Grid item key={i} xs={12}>
+                  <Cluster
+                    clusterObjects={item}
+                    detectedErrors={detectedErrors.get(item.cluster.name)}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+        )}
+      </Content>
+    </Page>
   );
 };
